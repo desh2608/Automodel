@@ -331,7 +331,7 @@ class GroupedExperts(nn.Module):
         experts_start_idx = ep_rank * n_local_experts
         experts_end_idx = experts_start_idx + n_local_experts
 
-        if self.use_torch_mm:
+        if False and self.use_torch_mm:
             y = self._forward_grouped_mm(
                 x,
                 token_mask,
@@ -659,7 +659,7 @@ class GroupedExpertsDeepEP(nn.Module):
         down_projs = self.down_projs.to_local()
 
         if torch.count_nonzero(tokens_per_expert) > 0:
-            if self.use_torch_mm:
+            if False and self.use_torch_mm:
                 tokens_per_expert_gpu = tokens_per_expert.to(
                     device=permuted_local_hidden_states.device, non_blocking=True
                 )
