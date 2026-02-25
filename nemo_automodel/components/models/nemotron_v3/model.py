@@ -17,6 +17,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 from transformers import AutoConfig
+from transformers.modeling_outputs import CausalLMOutputWithPast
 
 from nemo_automodel.components.models.common import (
     BackendConfig,
@@ -255,19 +256,28 @@ class NemotronHForCausalLM(HFCheckpointingMixin, nn.Module, MoEFSDPSyncMixin):
         *,
         attention_mask: torch.Tensor | None = None,
         causal_mask_mapping: dict[str, torch.Tensor] | None = None,
+        output_hidden_states: bool | None = None,
+        return_dict: bool | None = None,
         **kwargs: Any,
-    ) -> torch.Tensor | dict[str, torch.Tensor]:
+    ) -> CausalLMOutputWithPast:
         """Forward pass with optional loss computation.
 
         Args:
             input_ids: Input token IDs [batch_size, seq_len] (optional)
             attention_mask: 2D padding mask [batch_size, seq_len]
             causal_mask_mapping: Dict with precomputed 4D causal masks
+            output_hidden_states: Whether to return hidden states
+            return_dict: Accepted for API compatibility (always returns CausalLMOutputWithPast)
             **kwargs: Additional arguments
 
         Returns:
-            logits tensor [batch_size, seq_len, vocab_size]
+            CausalLMOutputWithPast with logits and optionally hidden_states
         """
+        output_hidden_states = (
+            output_hidden_states if output_hidden_states is not None
+            else getattr(self.config, 'output_hidden_states', False)
+        )
+
         # Forward through base model
         hidden_states = self.model(
             input_ids,
@@ -279,7 +289,10 @@ class NemotronHForCausalLM(HFCheckpointingMixin, nn.Module, MoEFSDPSyncMixin):
         # Compute logits (in float32 for numerical stability)
         logits = self.lm_head(hidden_states).float()
 
-        return logits
+        return CausalLMOutputWithPast(
+            logits=logits,
+            hidden_states=(hidden_states,) if output_hidden_states else None,
+        )
 
     @torch.no_grad()
     def initialize_weights(
